@@ -32,13 +32,17 @@ module SlugCompiler
   end
 
   def fetch_buildpack(buildpack_url)
+    # TODO: clean up afterwards
     buildpack_dir = "/tmp/buildpack_#{@compile_id}"
 
     Utils.log("fetch_buildpack") do
       FileUtils.mkdir_p(buildpack_dir)
-      if buildpack_url =~ /\.(tgz|tar\.gz)($|\?)/
+      if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
         Utils.message("-----> Fetching buildpack... ")
         fetch_tar(buildpack_url, buildpack_dir) rescue fetch_tar(buildpack_url, buildpack_dir)
+      elsif File.exists?(buildpack_url)
+        Utils.message("-----> Copying buildpack... ")
+        FileUtils.cp_r(buildpack_url + "/.", buildpack_dir)
       else
         Utils.message("-----> Cloning buildpack... ")
         url, treeish = buildpack_url.split("#")
