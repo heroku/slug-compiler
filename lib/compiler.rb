@@ -145,11 +145,11 @@ module SlugCompiler
       Utils.message("-----> Deleting #{total} files matching .slugignore patterns.\n")
     end
   end
-  
+
   def parse_procfile(build_dir)
     path = File.join(build_dir, "Procfile")
     return unless File.exists?(path)
-    
+
     File.read(path).split("\n").inject({}) do |ps, line|
       if m = line.match(/^([a-zA-Z0-9_]+):?\s+(.*)/)
         ps[m[1]] = m[2]
@@ -183,12 +183,4 @@ module SlugCompiler
       Utils.message(sprintf("-----> Compiled slug size: %1.0fK\n", slug_size / 1024))
     end
   end
-end
-
-if __FILE__ == $0
-  build_dir, buildpack_url, cache_dir = ARGV
-  abort "USAGE: #{$0} BUILD_DIR BUILDPACK_DIR CACHE_DIR" unless ARGV.size == 3 and
-    File.exists?(build_dir) and File.exists?(cache_dir) and 
-    URI.parse(buildpack_url) rescue false
-  SlugCompiler.run(*ARGV)
 end
