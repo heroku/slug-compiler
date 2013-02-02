@@ -10,22 +10,15 @@ the app's processes.
 The slug compiler is a program which uses a buildpack to transform
 application source into a slug.
 
-Inputs: source, cache, buildpack URL, feature flags
-Output: slug, process_types, config vars?
+Inputs: source, cache, buildpack URL, feature flags?
 
-* Fetch buildpack
-* Compile
-* Apply slugignore/prune
-* Adjust permissions
-* Parse Procfile
-* Tar
-* Size checks (raw/slug/cache)
+Output: slug, process_types, config vars?
 
 ## Usage
 
-On Heroku, the slug compiler is invoked via a Git pre-recieve hook. To
-test locally, you can run `slugc` manually against your sample app's
-Git repo.
+In the typical git-based Heroku deploy, the slug compiler is invoked
+via a Git pre-recieve hook. However, this code has been extracted so
+that the same process can be used elsewhere.
 
 ## Responsibilities
 
