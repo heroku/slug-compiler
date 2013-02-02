@@ -1,6 +1,7 @@
 require "fileutils"
 require "find"
 require "open-uri"
+require "shellwords"
 require "timeout"
 require "uri"
 require "yaml"
@@ -23,7 +24,7 @@ module SlugCompiler
     compile(build_dir, buildpack_dir, cache_dir, config)
 
     prune(build_dir)
-    process_types = parse_procfile(build_dir) || 
+    process_types = parse_procfile(build_dir) ||
       buildpack_processes(build_dir, buildpack_dir)
     slug = archive(build_dir)
     log_size(build_dir, cache_dir, slug)
@@ -36,20 +37,22 @@ module SlugCompiler
     buildpack_dir = "/tmp/buildpack_#{@compile_id}"
 
     Utils.log("fetch_buildpack") do
-      FileUtils.mkdir_p(buildpack_dir)
-      if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
-        Utils.message("-----> Fetching buildpack... ")
-        fetch_tar(buildpack_url, buildpack_dir) rescue fetch_tar(buildpack_url, buildpack_dir)
-      elsif File.exists?(buildpack_url)
-        Utils.message("-----> Copying buildpack... ")
-        FileUtils.cp_r(buildpack_url + "/.", buildpack_dir)
-      else
-        Utils.message("-----> Cloning buildpack... ")
-        url, treeish = buildpack_url.split("#")
-        Utils.clear_var("GIT_DIR") do
-          # TODO: sometimes this claims to succeed when it actually doesn't
-          Utils.bash("cd #{buildpack_dir}; git clone '#{url}' .", 90)
-          Utils.bash("cd #{buildpack_dir}; git checkout #{treeish}") if treeish
+      Timeout.timeout((ENV["BUILDPACK_FETCH_TIMEOUT"] || 90).to_i) do
+        FileUtils.mkdir_p(buildpack_dir)
+        if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
+          Utils.message("-----> Fetching buildpack... ")
+          fetch_tar(buildpack_url, buildpack_dir) rescue fetch_tar(buildpack_url, buildpack_dir)
+        elsif File.directory?(buildpack_url)
+          Utils.message("-----> Copying buildpack... ")
+          FileUtils.cp_r(buildpack_url + "/.", buildpack_dir)
+        else
+          Utils.message("-----> Cloning buildpack... ")
+          url, treeish = buildpack_url.split("#")
+          Utils.clear_var("GIT_DIR") do
+            # TODO: sometimes this claims to succeed when it actually doesn't
+            Utils.bash("git clone #{Shellwords.escape(url)} #{buildpack_dir}")
+            Utils.bash("cd #{buildpack_dir}; git checkout #{Shellwords.escape(treeish)}") if treeish
+          end
         end
       end
 
@@ -61,14 +64,12 @@ module SlugCompiler
     buildpack_dir
   rescue
     Utils.message("failed\n")
-    raise(CompileError, "error fetching custom buildpack")
+    raise(CompileError, "error fetching buildpack")
   end
 
   def fetch_tar(url, dir)
-    Timeout.timeout(90) do
-      IO.popen("tar xz -C #{dir}", "w") do |tar|
-        IO.copy_stream(open(url), tar)
-      end
+    IO.popen("tar xz -C #{dir}", "w") do |tar|
+      IO.copy_stream(open(url), tar)
     end
   end
 
