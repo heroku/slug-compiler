@@ -50,8 +50,8 @@ module SlugCompiler
           url, treeish = buildpack_url.split("#")
           Utils.clear_var("GIT_DIR") do
             # TODO: sometimes this claims to succeed when it actually doesn't
-            Utils.bash("git clone #{Shellwords.escape(url)} #{buildpack_dir}")
-            Utils.bash("cd #{buildpack_dir}; git checkout #{Shellwords.escape(treeish)}") if treeish
+            Utils.system("git clone #{Shellwords.escape(url)} #{buildpack_dir}")
+            Utils.system("cd #{buildpack_dir}; git checkout #{Shellwords.escape(treeish)}") if treeish
           end
         end
       end
@@ -86,7 +86,7 @@ module SlugCompiler
   end
 
   def detect(build_dir, buildpack_dir)
-    buildpack_name = Utils.bash("cd #{build_dir}; #{buildpack_dir}/bin/detect #{build_dir} 2>&1").strip
+    buildpack_name = Utils.system("cd #{build_dir}; #{buildpack_dir}/bin/detect #{build_dir} 2>&1").strip
     Utils.message("-----> #{buildpack_name} app detected\n")
     return buildpack_name
   rescue
@@ -94,15 +94,12 @@ module SlugCompiler
   end
 
   def compile(build_dir, buildpack_dir, cache_dir, config)
-    fork do
-      # TODO: whilelist existing config
-      config.each { |k,v| ENV[k] = v.to_s }
-      bin_compile = File.join(buildpack_dir, 'bin', 'compile')
-      retval = Utils.spawn("#{bin_compile} #{build_dir} #{cache_dir}", false, 100)
-      exit retval
+    # TODO: whilelist existing config
+    config.each { |k,v| ENV[k] = v.to_s }
+    bin_compile = File.join(buildpack_dir, 'bin', 'compile')
+    Timeout.timeout((ENV["COMPILE_TIMEOUT"] || 900).to_i) do
+      Utils.system("#{bin_compile} #{build_dir} #{cache_dir}", true)
     end
-    Process.wait
-    raise(CompileError, "failed to compile") if ($?.exitstatus != 0)
   end
 
   def prune(build_dir)
@@ -123,6 +120,7 @@ module SlugCompiler
     # everything else is more or less a shell glob
     slugignore_path = File.join(build_dir, ".slugignore")
     return if !File.exists?(slugignore_path)
+
     Utils.log("process_slugignore") do
       lines = File.read(slugignore_path).split
       total = lines.inject(0) do |total, line|
@@ -169,15 +167,17 @@ module SlugCompiler
   def archive(build_dir)
     slug = "/tmp/slug_#{@compile_id}.tar.gz"
     Utils.log("create_tar_slug") do
-      Utils.bash("tar czf #{slug} --xform s,^./,./app/, --owner=root --hard-dereference -C #{build_dir} .")
+      Utils.system("tar czf #{slug} --xform s,^./,./app/, --owner=root --hard-dereference -C #{build_dir} .")
     end
     return slug
+  rescue
+    raise(CompileError, "could not archive slug")
   end
 
   def log_size(build_dir, cache_dir, slug)
     Utils.log("check_sizes") do
-      raw_size = Utils.bash("du -s -x #{build_dir}").split(" ").first.to_i*1024
-      cache_size = Utils.bash("du -s -x #{cache_dir}").split(" ").first.to_i*1024 if File.exists? cache_dir
+      raw_size = `du -s -x #{build_dir}`.split(" ").first.to_i*1024
+      cache_size = `du -s -x #{cache_dir}`.split(" ").first.to_i*1024 if File.exists? cache_dir
       slug_size = File.size(slug)
       Utils.log("check_sizes at=emit raw_size=#{raw_size} slug_size=#{slug_size} cache_size=#{cache_size}")
       Utils.message(sprintf("-----> Compiled slug size: %1.0fK\n", slug_size / 1024))
