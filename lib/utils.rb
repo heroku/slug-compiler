@@ -12,6 +12,8 @@ module Utils
   # Like Kernel#system, but with better logging and the ability to return out
   def self.system(command, stream_out=false)
     log("utils system command='#{command}'")
+    # TODO: Process.spawn might be better for this:
+    # https://github.com/heroku/ferret/blob/master/lib/ferret.rb#L102
     IO.popen("#{command} 2>&1", "r") do |io|
       start = Time.now
       io.sync = true

@@ -20,6 +20,13 @@ In the typical git-based Heroku deploy, the slug compiler is invoked
 via a Git pre-recieve hook. However, this code has been extracted so
 that the same process can be used elsewhere.
 
+## Requirements
+
+* Ruby 1.9
+* tar
+* du
+* git (optional, used for fetching non-HTTP buildpacks)
+
 ## Responsibilities
 
 The new slug compiler does much less than the old one. In particular,
