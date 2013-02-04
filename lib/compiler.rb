@@ -4,7 +4,6 @@ require "open-uri"
 require "shellwords"
 require "timeout"
 require "uri"
-require "yaml"
 
 require "utils"
 
@@ -24,8 +23,7 @@ module SlugCompiler
     compile(build_dir, buildpack_dir, cache_dir, config)
 
     prune(build_dir)
-    process_types = parse_procfile(build_dir) ||
-      buildpack_processes(build_dir, buildpack_dir)
+    process_types = parse_procfile(build_dir)
     slug = archive(build_dir)
     log_size(build_dir, cache_dir, slug)
 
@@ -157,11 +155,6 @@ module SlugCompiler
       ps
     end
     # TODO: message_procfile
-  end
-
-  def buildpack_processes(build_dir, buildpack_dir)
-    release = `#{File.join(buildpack_dir, 'bin', 'release')} #{build_dir}`
-    YAML.parse(release)["default_process_types"] || {}
   end
 
   def archive(build_dir)
