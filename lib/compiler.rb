@@ -47,9 +47,10 @@ module SlugCompiler
           Utils.message("-----> Cloning buildpack... ")
           url, treeish = buildpack_url.split("#")
           Utils.clear_var("GIT_DIR") do
-            # TODO: sometimes this claims to succeed when it actually doesn't
-            Utils.system("git clone #{Shellwords.escape(url)} #{buildpack_dir}")
-            Utils.system("cd #{buildpack_dir}; git checkout #{Shellwords.escape(treeish)}") if treeish
+            system(["git", "clone", Shellwords.escape(url), buildpack_dir]
+                   [:out, :err] => "/dev/null") or raise "Couldn't clone"
+            system(["git", "checkout", Shellwords.escape(treeish)]
+                   [:out, :err] => "/dev/null", :chdir => buildpack_dir) if treeish
           end
         end
       end
@@ -60,8 +61,9 @@ module SlugCompiler
     end
 
     buildpack_dir
-  rescue
+  rescue StandardError, Timeout::Error => e
     Utils.message("failed\n")
+    log_error(e)
     raise(CompileError, "error fetching buildpack")
   end
 
@@ -84,7 +86,7 @@ module SlugCompiler
   end
 
   def detect(build_dir, buildpack_dir)
-    buildpack_name = Utils.system("cd #{build_dir}; #{buildpack_dir}/bin/detect #{build_dir} 2>&1").strip
+    buildpack_name = `#{File.join(buildpack_dir, "bin", "detect")} #{build_dir} 2>1`.strip
     Utils.message("-----> #{buildpack_name} app detected\n")
     return buildpack_name
   rescue
@@ -96,6 +98,7 @@ module SlugCompiler
     config.each { |k,v| ENV[k] = v.to_s }
     bin_compile = File.join(buildpack_dir, 'bin', 'compile')
     Timeout.timeout((ENV["COMPILE_TIMEOUT"] || 900).to_i) do
+      # TODO: process.spawn
       Utils.system("#{bin_compile} #{build_dir} #{cache_dir}", true)
     end
   end
@@ -160,7 +163,9 @@ module SlugCompiler
   def archive(build_dir)
     slug = "/tmp/slug_#{@compile_id}.tar.gz"
     Utils.log("create_tar_slug") do
-      Utils.system("tar czf #{slug} --xform s,^./,./app/, --owner=root --hard-dereference -C #{build_dir} .")
+      system(["tar", "czf", slug, "--xform" "s,^./,./app/,", "--owner=root",
+              "--hard-dereference", "-C", build_dir, "."],
+             [:out, :err] => "/dev/null") or raise("couldn't tar")
     end
     return slug
   rescue
