@@ -10,18 +10,18 @@ abort "USAGE: #{$0} BUILD_DIR BUILDPACK_DIR CACHE_DIR" unless ARGV.size == 3 and
 begin
   start = Time.now
   slug = SlugCompiler.run(*ARGV)
-  Utils.message("       Compiled #{slug}... ")
+  puts("       Compiled #{slug}... ")
+  # TODO: unify this with existing logging
+rescue SlugCompiler::CompileFail => e
+  puts(" !     Heroku push rejected, #{e.message}\n")
 rescue SlugCompiler::CompileError => e
-  Utils.message(" !     Heroku push rejected, #{e.message}\n\n")
-  Utils.log("measure=slugc.fail elapsed=#{Time.now - start} message='#{e.message}'")
-rescue Timeout::Error => e
-  Utils.message(" !     Heroku push rejected, timed out.\n\n")
-  Utils.log("measure=slugc.fail elapsed=#{Time.now - start} message='#{e.message}'")
-rescue
-  msg = "\n"
-  msg << " !     Heroku push rejected due to an unrecognized error.\n"
-  msg << " !     We've been notified, see http://support.heroku.com if the problem persists.\n"
-  msg << "\n\n"
-  Utils.message(msg)
-  Utils.log_error("measure=slugc.error elapsed=#{Time.now - start} class='#{e.class}' message='#{e.message}' trace='#{e.backtrace[0..3].join(",")}'")
+  puts(" !     Heroku push rejected, #{e.message}\n")
+  SlugCompiler.log("measure=slugc.fail elapsed=#{Time.now - start} " \
+                   "message='#{e.message}'")
+rescue => e
+  puts
+  puts(" !     Heroku push rejected due to an unrecognized error.")
+  puts(" !     We've been notified, see http://support.heroku.com if the problem persists.")
+  puts("\n")
+  SlugCompiler.log_error("measure=slugc.error elapsed=#{Time.now - start}", e)
 end
