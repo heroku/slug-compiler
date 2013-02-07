@@ -168,8 +168,8 @@ module SlugCompiler
   def archive(build_dir)
     slug = "/tmp/slug_#{@compile_id}.tar.gz"
     log("create_tar_slug") do
-      system(["tar", "czf", slug, "--xform" "s,^./,./app/,", "--owner=root",
-              "--hard-dereference", "-C", build_dir, "."],
+      system("tar", "czf", slug, "--xform", "s,^./,./app/,", "--owner=root",
+             "--hard-dereference", "-C", build_dir, ".",
              [:out, :err] => "/dev/null") or raise("couldn't tar")
     end
     return slug
