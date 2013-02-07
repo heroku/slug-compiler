@@ -29,10 +29,11 @@ module SlugCompiler
     log_size(build_dir, cache_dir, slug)
 
     slug
+  ensure
+    FileUtils.rm_rf(buildpack_dir) if buildpack_dir
   end
 
   def fetch_buildpack(buildpack_url)
-    # TODO: clean up afterwards
     buildpack_dir = "/tmp/buildpack_#{@compile_id}"
 
     log("fetch_buildpack") do
