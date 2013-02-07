@@ -39,15 +39,15 @@ module SlugCompiler
       Timeout.timeout((ENV["BUILDPACK_FETCH_TIMEOUT"] || 90).to_i) do
         FileUtils.mkdir_p(buildpack_dir)
         if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
-          Utils.message("-----> Fetching buildpack... ")
+          print("-----> Fetching buildpack... ")
           fetch_tar(buildpack_url, buildpack_dir) rescue fetch_tar(buildpack_url, buildpack_dir)
         elsif File.directory?(buildpack_url)
-          Utils.message("-----> Copying buildpack... ")
+          print("-----> Copying buildpack... ")
           FileUtils.cp_r(buildpack_url + "/.", buildpack_dir)
         else
-          Utils.message("-----> Cloning buildpack... ")
+          print("-----> Cloning buildpack... ")
           url, treeish = buildpack_url.split("#")
-          Utils.clear_var("GIT_DIR") do
+          clear_var("GIT_DIR") do
             system(["git", "clone", Shellwords.escape(url), buildpack_dir]
                    [:out, :err] => "/dev/null") or raise("Couldn't clone")
             system(["git", "checkout", Shellwords.escape(treeish)]
@@ -58,13 +58,13 @@ module SlugCompiler
 
       bins = ["compile", "detect", "release"].map { |b|"#{buildpack_dir}/bin/#{b}" }
       FileUtils.chmod(0755, bins.select{|b| File.exists?(b)})
-      Utils.message("done\n")
+      puts("done")
     end
 
     buildpack_dir
   rescue StandardError, Timeout::Error => e
-    Utils.message("failed\n")
-    log_error(e)
+    puts("failed")
+    # TODO: log error
     raise(CompileError, "error fetching buildpack")
   end
 
@@ -88,7 +88,7 @@ module SlugCompiler
 
   def detect(build_dir, buildpack_dir)
     buildpack_name = `#{File.join(buildpack_dir, "bin", "detect")} #{build_dir} 2>1`.strip
-    Utils.message("-----> #{buildpack_name} app detected\n")
+    puts("-----> #{buildpack_name} app detected")
     return buildpack_name
   rescue
     raise(CompileFail, "no compatible app detected")
@@ -147,7 +147,7 @@ module SlugCompiler
           total + to_delete.size
         end
       end
-      Utils.message("-----> Deleting #{total} files matching .slugignore patterns.\n")
+      puts("-----> Deleting #{total} files matching .slugignore patterns.")
     end
   end
 
@@ -182,7 +182,18 @@ module SlugCompiler
       cache_size = `du -s -x #{cache_dir}`.split(" ").first.to_i*1024 if File.exists? cache_dir
       slug_size = File.size(slug)
       Utils.log("check_sizes at=emit raw_size=#{raw_size} slug_size=#{slug_size} cache_size=#{cache_size}")
-      Utils.message(sprintf("-----> Compiled slug size: %1.0fK\n", slug_size / 1024))
+      puts(sprintf("-----> Compiled slug size: %1.0fK", slug_size / 1024))
+    end
+  end
+
+  # utils
+
+  def clear_var(k)
+    v = ENV.delete(k)
+    begin
+      yield
+    ensure
+      ENV[k] = v
     end
   end
 end

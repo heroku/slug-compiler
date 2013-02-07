@@ -2,11 +2,6 @@ require "pty"
 require "tempfile"
 
 module Utils
-  def self.message(text)
-    $stderr.print(text)
-    $stderr.flush
-  end
-
   def self.print_output(output, last=false)
     while (idx = output.index("\n")) do
       line = output.slice!(0, idx+1)
@@ -14,15 +9,6 @@ module Utils
     end
     message "       #{output}" if last and output != ""
     output
-  end
-
-  def self.clear_var(k)
-    v = ENV.delete(k)
-    begin
-      yield
-    ensure
-      ENV[k] = v
-    end
   end
 
   def self.log(msg, &blk)
