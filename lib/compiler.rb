@@ -88,7 +88,7 @@ module SlugCompiler
   end
 
   def detect(build_dir, buildpack_dir)
-    buildpack_name = `#{File.join(buildpack_dir, "bin", "detect")} #{build_dir} 2>1`.strip
+    buildpack_name = `#{File.join(buildpack_dir, "bin", "detect")} #{build_dir}`.strip
     puts("-----> #{buildpack_name} app detected")
     return buildpack_name
   rescue
@@ -101,8 +101,8 @@ module SlugCompiler
     Timeout.timeout(timeout) do
       pid = spawn(config, bin_compile, build_dir, cache_dir,
                   unsetenv_others: true, err: :out)
-      status = Process.wait(pid)
-      raise(CompileFail) unless status.zero?
+      Process.wait(pid)
+      raise(CompileFail, "build failed") unless $?.exitstatus.zero?
     end
   rescue Timeout::Error
     raise(CompileFail, "timed out; must complete in #{timeout} seconds")
