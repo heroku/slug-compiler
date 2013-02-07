@@ -7,44 +7,6 @@ module Utils
     $stderr.flush
   end
 
-  class BashFailed < StandardError; end
-
-  # Like Kernel#system, but with better logging and the ability to return out
-  def self.system(command, stream_out=false)
-    log("utils system command='#{command}'")
-    # TODO: Process.spawn might be better for this:
-    # https://github.com/heroku/ferret/blob/master/lib/ferret.rb#L102
-    IO.popen("#{command} 2>&1", "r") do |io|
-      start = Time.now
-      io.sync = true
-      out = ""
-      begin
-        loop do
-          if IO.select([io], [], [], 600)
-            if stream_out
-              message(io.readpartial(80))
-            else
-              out += io.readpartial(80)
-              out = print_output(out)
-            end
-          end
-        end
-      rescue Timeout::Error => e
-        log_error("command='#{command}' exit_status=#{$?.exitstatus} out='#{out}' at=timeout elapsed=#{Time.now.to_f - start}")
-        raise(e)
-      rescue EOFError
-        print_output(out, true) unless stream_out
-      end
-    end
-    if $?.exitstatus != 0
-      out.each_line do |line|
-        log("utils bash command='#{log_command}' out=\"#{line.gsub('"', "'")}\"")
-      end
-      raise(BashFailed, "command='#{log_command}' exit_status=#{$?.exitstatus} out='#{out}'")
-    end
-    out
-  end
-
   def self.print_output(output, last=false)
     while (idx = output.index("\n")) do
       line = output.slice!(0, idx+1)

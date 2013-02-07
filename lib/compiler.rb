@@ -11,6 +11,7 @@ require "utils"
 
 module SlugCompiler
   class CompileError < RuntimeError; end
+  class CompileFail < RuntimeError; end
 
   module_function
 
@@ -48,7 +49,7 @@ module SlugCompiler
           url, treeish = buildpack_url.split("#")
           Utils.clear_var("GIT_DIR") do
             system(["git", "clone", Shellwords.escape(url), buildpack_dir]
-                   [:out, :err] => "/dev/null") or raise "Couldn't clone"
+                   [:out, :err] => "/dev/null") or raise("Couldn't clone")
             system(["git", "checkout", Shellwords.escape(treeish)]
                    [:out, :err] => "/dev/null", :chdir => buildpack_dir) if treeish
           end
@@ -90,17 +91,20 @@ module SlugCompiler
     Utils.message("-----> #{buildpack_name} app detected\n")
     return buildpack_name
   rescue
-    raise(CompileError, "no compatible app detected")
+    raise(CompileFail, "no compatible app detected")
   end
 
   def compile(build_dir, buildpack_dir, cache_dir, config)
-    # TODO: whilelist existing config
-    config.each { |k,v| ENV[k] = v.to_s }
     bin_compile = File.join(buildpack_dir, 'bin', 'compile')
-    Timeout.timeout((ENV["COMPILE_TIMEOUT"] || 900).to_i) do
-      # TODO: process.spawn
-      Utils.system("#{bin_compile} #{build_dir} #{cache_dir}", true)
+    timeout = (ENV["COMPILE_TIMEOUT"] || 900).to_i
+    Timeout.timeout(timeout) do
+      pid = Process.spawn(config, [bin_compile, build_dir, cache_dir]
+                          unsetenv_others: true, err: :out)
+      status = Process.wait(pid)
+      raise(CompileFail) unless status.zero?
     end
+  rescue Timeout::Error
+    raise(CompileFail, "timed out; must complete in #{timeout} seconds")
   end
 
   def prune(build_dir)
