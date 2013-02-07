@@ -2,12 +2,12 @@ require "fileutils"
 require "find"
 require "open-uri"
 require "shellwords"
+require "syslog"
 require "timeout"
 require "uri"
 
-require "utils"
-
-# TODO: user output to stdout, detailed logs to stderr
+$stdout.sync = true
+Syslog.open("slug-compiler", Syslog::LOG_CONS, Syslog::LOG_USER)
 
 module SlugCompiler
   class CompileError < RuntimeError; end
@@ -35,7 +35,7 @@ module SlugCompiler
     # TODO: clean up afterwards
     buildpack_dir = "/tmp/buildpack_#{@compile_id}"
 
-    Utils.log("fetch_buildpack") do
+    log("fetch_buildpack") do
       Timeout.timeout((ENV["BUILDPACK_FETCH_TIMEOUT"] || 90).to_i) do
         FileUtils.mkdir_p(buildpack_dir)
         if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
@@ -64,7 +64,7 @@ module SlugCompiler
     buildpack_dir
   rescue StandardError, Timeout::Error => e
     puts("failed")
-    # TODO: log error
+    log_error("error fetching buildpack", e)
     raise(CompileError, "error fetching buildpack")
   end
 
@@ -126,7 +126,7 @@ module SlugCompiler
     slugignore_path = File.join(build_dir, ".slugignore")
     return if !File.exists?(slugignore_path)
 
-    Utils.log("process_slugignore") do
+    log("process_slugignore") do
       lines = File.read(slugignore_path).split
       total = lines.inject(0) do |total, line|
         line = (line.split(/#/).first || "").strip
@@ -166,22 +166,23 @@ module SlugCompiler
 
   def archive(build_dir)
     slug = "/tmp/slug_#{@compile_id}.tar.gz"
-    Utils.log("create_tar_slug") do
+    log("create_tar_slug") do
       system(["tar", "czf", slug, "--xform" "s,^./,./app/,", "--owner=root",
               "--hard-dereference", "-C", build_dir, "."],
              [:out, :err] => "/dev/null") or raise("couldn't tar")
     end
     return slug
-  rescue
+  rescue => e
+    log_error("could not archive slug", e)
     raise(CompileError, "could not archive slug")
   end
 
   def log_size(build_dir, cache_dir, slug)
-    Utils.log("check_sizes") do
+    log("check_sizes") do
       raw_size = `du -s -x #{build_dir}`.split(" ").first.to_i*1024
       cache_size = `du -s -x #{cache_dir}`.split(" ").first.to_i*1024 if File.exists? cache_dir
       slug_size = File.size(slug)
-      Utils.log("check_sizes at=emit raw_size=#{raw_size} slug_size=#{slug_size} cache_size=#{cache_size}")
+      log("check_sizes at=emit raw_size=#{raw_size} slug_size=#{slug_size} cache_size=#{cache_size}")
       puts(sprintf("-----> Compiled slug size: %1.0fK", slug_size / 1024))
     end
   end
@@ -195,5 +196,28 @@ module SlugCompiler
     ensure
       ENV[k] = v
     end
+  end
+
+  def log(msg, &block)
+    if block
+      start = Time.now
+      res = nil
+      log("slugc #{msg} at=start")
+      begin
+        res = yield
+      rescue => e
+        log_error("#{msg} elapsed=#{Time.now - start}", e)
+        raise(e)
+      end
+      log("slugc #{msg} at=finish elapsed=#{Time.now - start}")
+      res
+    else
+      Syslog.log(Syslog::LOG_INFO, msg)
+    end
+  end
+
+  def log_error(line, e)
+    Syslog.log(Syslog::LOG_ERR, "slugc #{line} at=error " \
+               "class='#{e.class}' message='#{e.message}'")
   end
 end
