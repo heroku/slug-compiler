@@ -49,9 +49,9 @@ module SlugCompiler
           print("-----> Cloning buildpack... ")
           url, treeish = buildpack_url.split("#")
           clear_var("GIT_DIR") do
-            system(["git", "clone", Shellwords.escape(url), buildpack_dir]
+            system(["git", "clone", Shellwords.escape(url), buildpack_dir],
                    [:out, :err] => "/dev/null") or raise("Couldn't clone")
-            system(["git", "checkout", Shellwords.escape(treeish)]
+            system(["git", "checkout", Shellwords.escape(treeish)],
                    [:out, :err] => "/dev/null", :chdir => buildpack_dir) if treeish
           end
         end
@@ -99,8 +99,8 @@ module SlugCompiler
     bin_compile = File.join(buildpack_dir, 'bin', 'compile')
     timeout = (ENV["COMPILE_TIMEOUT"] || 900).to_i
     Timeout.timeout(timeout) do
-      pid = Process.spawn(config, [bin_compile, build_dir, cache_dir]
-                          unsetenv_others: true, err: :out)
+      pid = spawn(config, bin_compile, build_dir, cache_dir,
+                  unsetenv_others: true, err: :out)
       status = Process.wait(pid)
       raise(CompileFail) unless status.zero?
     end
