@@ -2,10 +2,10 @@
 
 require "compiler"
 
-build_dir, buildpack_url, cache_dir = ARGV
-abort "USAGE: #{$0} BUILD_DIR BUILDPACK_DIR CACHE_DIR" unless ARGV.size == 3 and
+build_dir, buildpack_url, cache_dir, output_dir = ARGV
+abort "USAGE: #{$0} BUILD_DIR BUILDPACK_DIR CACHE_DIR OUTPUT_DIR" unless ARGV.size == 4 and
   File.exists?(build_dir) and File.exists?(cache_dir) and
-  URI.parse(buildpack_url) rescue false
+  URI.parse(buildpack_url) rescue false and File.directory?(output_dir)
 
 begin
   start = Time.now

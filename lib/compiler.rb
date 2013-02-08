@@ -1,5 +1,6 @@
 require "fileutils"
 require "find"
+require "json"
 require "open-uri"
 require "shellwords"
 require "syslog"
@@ -15,7 +16,7 @@ module SlugCompiler
 
   module_function
 
-  def run(build_dir, buildpack_url, cache_dir)
+  def run(build_dir, buildpack_url, cache_dir, output_dir)
     @compile_id = rand(2**64).to_s(36) # because UUIDs need a gem
 
     buildpack_dir = fetch_buildpack(buildpack_url)
@@ -24,8 +25,8 @@ module SlugCompiler
     compile(build_dir, buildpack_dir, cache_dir, config)
 
     prune(build_dir)
-    process_types = parse_procfile(build_dir)
-    slug = archive(build_dir)
+    process_types = parse_procfile(build_dir, output_dir)
+    slug = archive(build_dir, output_dir)
     log_size(build_dir, cache_dir, slug)
 
     slug
@@ -152,21 +153,25 @@ module SlugCompiler
     end
   end
 
-  def parse_procfile(build_dir)
+  def parse_procfile(build_dir, output_dir)
     path = File.join(build_dir, "Procfile")
     return unless File.exists?(path)
 
-    File.read(path).split("\n").inject({}) do |ps, line|
+    process_types = File.read(path).split("\n").inject({}) do |ps, line|
       if m = line.match(/^([a-zA-Z0-9_]+):?\s+(.*)/)
         ps[m[1]] = m[2]
       end
       ps
     end
-    # TODO: message_procfile
+
+    FileUtils.mkdir_p(output_dir)
+    File.write(File.join(output_dir, "processes.json"),
+               JSON.unparse(process_types))
   end
 
-  def archive(build_dir)
-    slug = "/tmp/slug_#{@compile_id}.tar.gz"
+  def archive(build_dir, output_dir)
+    FileUtils.mkdir_p(output_dir)
+    slug = File.join(output_dir, "slug.tgz")
     log("create_tar_slug") do
       system("tar", "czf", slug, "--xform", "s,^./,./app/,", "--owner=root",
              "--hard-dereference", "-C", build_dir, ".",
