@@ -9,8 +9,7 @@ abort "USAGE: #{$0} BUILD_DIR BUILDPACK_DIR CACHE_DIR OUTPUT_DIR" unless ARGV.si
 
 begin
   start = Time.now
-  slug = SlugCompiler.run(*ARGV)
-  puts("       Compiled #{slug}... ")
+  SlugCompiler.run(*ARGV)
   # TODO: unify this with existing logging
 rescue SlugCompiler::CompileFail => e
   puts(" !     Heroku push rejected, #{e.message}\n")
@@ -24,4 +23,5 @@ rescue => e
   puts(" !     We've been notified, see http://support.heroku.com if the problem persists.")
   puts("\n")
   SlugCompiler.log_error("measure=slugc.error elapsed=#{Time.now - start}", e)
+  raise if ENV["DEBUG"]
 end

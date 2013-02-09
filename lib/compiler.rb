@@ -42,24 +42,31 @@ module SlugCompiler
         FileUtils.mkdir_p(buildpack_dir)
         if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
           print("-----> Fetching buildpack... ")
-          fetch_tar(buildpack_url, buildpack_dir) rescue fetch_tar(buildpack_url, buildpack_dir)
+          retrying(3) do
+            IO.popen("tar xz -C #{dir}", "w") do |tar|
+              IO.copy_stream(open(url), tar)
+            end
+          end
         elsif File.directory?(buildpack_url)
           print("-----> Copying buildpack... ")
           FileUtils.cp_r(buildpack_url + "/.", buildpack_dir)
         else
           print("-----> Cloning buildpack... ")
-          url, treeish = buildpack_url.split("#")
+          url, sha = buildpack_url.split("#")
           clear_var("GIT_DIR") do
             system(["git", "clone", Shellwords.escape(url), buildpack_dir],
                    [:out, :err] => "/dev/null") or raise("Couldn't clone")
             system(["git", "checkout", Shellwords.escape(treeish)],
-                   [:out, :err] => "/dev/null", :chdir => buildpack_dir) if treeish
+                   [:out, :err] => "/dev/null", :chdir => buildpack_dir) if sha
           end
         end
       end
 
-      bins = ["compile", "detect", "release"].map { |b|"#{buildpack_dir}/bin/#{b}" }
-      FileUtils.chmod(0755, bins.select{|b| File.exists?(b)})
+      ["compile", "detect", "release"].each do |script|
+        bin = File.join(buildpack_dir, "bin", script)
+        FileUtils.chmod(0755, bin) if File.exists?(bin)
+      end
+
       puts("done")
     end
 
@@ -68,12 +75,6 @@ module SlugCompiler
     puts("failed")
     log_error("error fetching buildpack", e)
     raise(CompileError, "error fetching buildpack")
-  end
-
-  def fetch_tar(url, dir)
-    IO.popen("tar xz -C #{dir}", "w") do |tar|
-      IO.copy_stream(open(url), tar)
-    end
   end
 
   def buildpack_config(buildpack_url)
@@ -89,9 +90,9 @@ module SlugCompiler
   end
 
   def detect(build_dir, buildpack_dir)
-    buildpack_name = `#{File.join(buildpack_dir, "bin", "detect")} #{build_dir}`.strip
-    puts("-----> #{buildpack_name} app detected")
-    return buildpack_name
+    name = `#{File.join(buildpack_dir, "bin", "detect")} #{build_dir}`.strip
+    puts("-----> #{name} app detected")
+    return name
   rescue
     raise(CompileFail, "no compatible app detected")
   end
@@ -144,7 +145,8 @@ module SlugCompiler
                     ["", "**"].map { |g| File.join(build_dir, g, line) }
                   end
 
-          to_delete = Dir[*globs].uniq.map { |p| File.expand_path(p) }.select { |p| p.match(/^#{build_dir}/) }
+          to_delete = Dir[*globs].uniq.map { |p| File.expand_path(p) }
+          to_delete = to_delete.select { |p| p.match(/^#{build_dir}/) }
           to_delete.each { |p| FileUtils.rm_rf(p) }
           total + to_delete.size
         end
@@ -185,15 +187,25 @@ module SlugCompiler
 
   def log_size(build_dir, cache_dir, slug)
     log("check_sizes") do
-      raw_size = `du -s -x #{build_dir}`.split(" ").first.to_i*1024
-      cache_size = `du -s -x #{cache_dir}`.split(" ").first.to_i*1024 if File.exists? cache_dir
+      raw_size = size_of_dir(build_dir)
+      cache_size = size_of_dir(cache_dir) if File.exists? cache_dir
       slug_size = File.size(slug)
-      log("check_sizes at=emit raw_size=#{raw_size} slug_size=#{slug_size} cache_size=#{cache_size}")
+      log("check_sizes raw=#{raw_size} slug=#{slug_size} cache=#{cache_size}")
       puts(sprintf("-----> Compiled slug size: %1.0fK", slug_size / 1024))
     end
   end
 
   # utils
+
+  def retrying(n)
+    begin
+      yield
+    rescue => e
+      n = n - 1
+      log_error("retrying", e) && retry if n > 0
+      raise e
+    end
+  end
 
   def clear_var(k)
     v = ENV.delete(k)
@@ -225,5 +237,9 @@ module SlugCompiler
   def log_error(line, e)
     Syslog.log(Syslog::LOG_ERR, "slugc #{line} at=error " \
                "class='#{e.class}' message='#{e.message}'")
+  end
+
+  def size_of_dir(dir)
+    `du -s -x #{dir}`.split(" ").first.to_i*1024
   end
 end
