@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require "compiler"
+require "slug_compiler"
 
 build_dir, buildpack_url, cache_dir, output_dir = ARGV
 abort "USAGE: #{$0} BUILD_DIR BUILDPACK_DIR CACHE_DIR OUTPUT_DIR" unless ARGV.size == 4 and
