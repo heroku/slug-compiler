@@ -43,8 +43,8 @@ module SlugCompiler
         if buildpack_url =~ /^https?:\/\/.*\.(tgz|tar\.gz)($|\?)/
           print("-----> Fetching buildpack... ")
           retrying(3) do
-            IO.popen("tar xz -C #{dir}", "w") do |tar|
-              IO.copy_stream(open(url), tar)
+            IO.popen("tar xz -C #{buildpack_dir}", "w") do |tar|
+              IO.copy_stream(open(buildpack_url), tar)
             end
           end
         elsif File.directory?(buildpack_url)
