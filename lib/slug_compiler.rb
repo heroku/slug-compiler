@@ -29,7 +29,7 @@ module SlugCompiler
     slug = archive(build_dir, output_dir)
     log_size(build_dir, cache_dir, slug)
 
-    slug
+    [slug, process_types]
   ensure
     FileUtils.rm_rf(buildpack_dir) if buildpack_dir
   end
@@ -62,10 +62,7 @@ module SlugCompiler
         end
       end
 
-      ["compile", "detect", "release"].each do |script|
-        bin = File.join(buildpack_dir, "bin", script)
-        FileUtils.chmod(0755, bin) if File.exists?(bin)
-      end
+      FileUtils.chmod_R(0755, File.join(buildpack_dir, "bin"))
 
       puts("done")
     end
@@ -169,6 +166,7 @@ module SlugCompiler
     FileUtils.mkdir_p(output_dir)
     File.write(File.join(output_dir, "processes.json"),
                JSON.unparse(process_types))
+    process_types
   end
 
   def archive(build_dir, output_dir)
