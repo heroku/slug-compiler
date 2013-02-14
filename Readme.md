@@ -14,6 +14,10 @@ Inputs: source, cache, buildpack URL, feature flags?
 
 Output: slug, process_types, config vars?
 
+Note that this is a trimmed down version of the slug compiler that
+currently runs in production on Heroku. It's intended for next-gen
+services but is not currently in production use.
+
 ## Usage
 
 In the typical git-based Heroku deploy, the slug compiler is invoked
