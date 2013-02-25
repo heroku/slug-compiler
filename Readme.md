@@ -24,6 +24,10 @@ In the typical git-based Heroku deploy, the slug compiler is invoked
 via a Git pre-recieve hook. However, this code has been extracted so
 that the same process can be used elsewhere.
 
+Note that it will delete .slugignore patterns and other files, so you
+shouldn't run this straight out of a checkout. Create a fresh copy of
+the application source before compiling it.
+
 ## Requirements
 
 * Ruby 1.9
