@@ -164,7 +164,7 @@ module SlugCompiler
     end
 
     FileUtils.mkdir_p(output_dir)
-    File.open(File.join(output_dir, "processes.json")) do |f|
+    File.open(File.join(output_dir, "processes.json"), "w") do |f|
       f.write(JSON.unparse(process_types))
     end
     process_types
