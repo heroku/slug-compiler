@@ -2,17 +2,16 @@
 
 ## Overview
 
-A slug is a compressed archive of an app's code, to be stored in S3
-and subsequently fetched by runtime instances (the
-[dyno grid](http://heroku.com/how/dyno_grid)) for execution of one of
-the app's processes.
+A slug is a unit of deployment which includes everything an
+application needs to run. The slug compiler is a program which uses a
+buildpack to transform application source into a slug, typically by
+gathering all dependencies and compiling source to binaries, if
+applicable.
 
-The slug compiler is a program which uses a buildpack to transform
-application source into a slug.
-
-Inputs: source, cache, buildpack URL, feature flags?
-
-Output: slug, process_types, config vars?
+As inputs it takes a source directory, cache directory, buildpack URL,
+and output directory. It places a tarball of the slug as well as a
+JSON file of process types in the output directory if compilation is
+successful.
 
 Note that this is a trimmed down version of the slug compiler that
 currently runs in production on Heroku. It's intended for next-gen
