@@ -12,7 +12,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
   gem.name          = "slug-compiler"
   gem.require_paths = ["lib"]
-  gem.version       = "2.0.0-pre1"
+  gem.version       = "2.0.0"
 
   gem.add_development_dependency "rake"
 end
