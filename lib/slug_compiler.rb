@@ -156,7 +156,7 @@ module SlugCompiler
     path = File.join(build_dir, "Procfile")
     return unless File.exists?(path)
 
-    process_types = File.read(path).split("\n").inject({}) do |ps, line|
+    process_types = File.foreach(path, mode: "rt").inject({}) do |ps, line|
       if m = line.match(/^([a-zA-Z0-9_]+):?\s+(.*)/)
         ps[m[1]] = m[2]
       end
