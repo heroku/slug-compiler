@@ -174,8 +174,8 @@ module SlugCompiler
     FileUtils.mkdir_p(output_dir)
     slug = File.join(output_dir, "slug.tgz")
     log("create_tar_slug") do
-      system("tar", "czf", slug, "--xform", "s,^./,./app/,", "--owner=root",
-             "--hard-dereference", "-C", build_dir, ".",
+      system("tar", "czf", slug, "--owner=root", "--hard-dereference",
+             "-C", build_dir, ".",
              [:out, :err] => "/dev/null") or raise("couldn't tar")
     end
     return slug
