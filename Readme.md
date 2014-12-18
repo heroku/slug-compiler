@@ -1,4 +1,4 @@
-# Slug compiler
+# Slug compiler (Deprecated)
 
 ## Overview
 
