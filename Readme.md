@@ -1,4 +1,4 @@
-# Slug compiler
+# Slug compiler (Deprecated)
 
 ## Overview
 
@@ -13,9 +13,11 @@ and output directory. It places a tarball of the slug as well as a
 JSON file of process types in the output directory if compilation is
 successful.
 
-Note that this is a trimmed down version of the slug compiler that
+~~Note that this is a trimmed down version of the slug compiler that
 currently runs in production on Heroku. It's intended for next-gen
-services but is not currently in production use.
+services but is not currently in production use.~~
+
+This implementation no longer matches Heroku's production implementation. The current implementation isn't suitable for standalone use like this gem is. There are currently no plans for Heroku to use this implementation or split out the current implementation.
 
 ## Usage
 
